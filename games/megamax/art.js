@@ -499,7 +499,11 @@ function drawBuddy(ctx, def, o) {
 }
 
 // ---------- projectiles ----------
+// what each element is called out loud (for "Double leaf! Psychic power!")
+const ELEMENT_NAMES = { rock: 'rock', fire: 'fire', bolt: 'lightning', water: 'water', leaf: 'leaf', ice: 'ice', shadow: 'shadow', gear: 'gear',
+  bone: 'bone', gem: 'crystal', goo: 'goo', star: 'star', wind: 'wind' };
 const ELEMENT_COLORS = {
+  psychic: '#c77dff',
   wind: '#bfe9ff', gem: '#ff6fa5', goo: '#80ed99', bone: '#f1f1e6', star: '#ffd23f',
   rock: '#9a8c7a', fire: '#ff7b00', bolt: '#ffe14d', water: '#4cc9f0', leaf: '#6ab04c', ice: '#a8e6ff', shadow: '#9d4edd', gear: '#ff8c2b',
 };
@@ -554,11 +558,35 @@ function drawProjectile(ctx, el, x, y, r, t, dir) {
     case 'star':
       ctx.shadowColor = '#fff6a0'; ctx.shadowBlur = 12; ctx.rotate(t * 10 * dir);
       star(ctx, 0, 0, r * 1.1, 5, 0.48); fs(ctx, '#ffd23f', 3); break;
+    case 'psychic': {
+      // a glowing purple mind-orb with swirling rings
+      ctx.shadowColor = '#e0aaff'; ctx.shadowBlur = 20;
+      const g = ctx.createRadialGradient(-r * 0.3, -r * 0.3, 1, 0, 0, r);
+      g.addColorStop(0, '#ffffff'); g.addColorStop(0.35, '#e0aaff'); g.addColorStop(1, '#7b2cbf');
+      ell(ctx, 0, 0, r, r); ctx.fillStyle = g; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = OUT; ctx.stroke();
+      ctx.shadowBlur = 0; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2.5;
+      for (let i = 0; i < 2; i++) { ctx.save(); ctx.rotate(t * 6 * (i ? -1 : 1) + i); ell(ctx, 0, 0, r * 1.45, r * 0.5); ctx.stroke(); ctx.restore(); }
+      break;
+    }
   }
   ctx.restore();
 }
 
 // ---------- icons (for buttons; picture-first, text-light) ----------
+// the psychic badge: a purple eye with little rays
+function drawPsyEye(ctx, x, y, s, t) {
+  ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
+  ctx.strokeStyle = '#e0aaff'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+  for (let i = 0; i < 7; i++) { const a = -Math.PI + (i / 6) * Math.PI; const k = 1 + 0.15 * Math.sin((t || 0) * 6 + i); ctx.beginPath(); ctx.moveTo(Math.cos(a) * 20, Math.sin(a) * 13); ctx.lineTo(Math.cos(a) * 27 * k, Math.sin(a) * 19 * k); ctx.stroke(); }
+  ctx.beginPath(); ctx.moveTo(-20, 0); ctx.quadraticCurveTo(0, -18, 20, 0); ctx.quadraticCurveTo(0, 18, -20, 0); ctx.closePath();
+  fs(ctx, '#ffffff', 3.5);
+  ell(ctx, 0, 0, 8, 8); ctx.fillStyle = '#9d4edd'; ctx.fill();
+  ell(ctx, 0, 0, 3.5, 3.5); ctx.fillStyle = OUT; ctx.fill();
+  ell(ctx, -2.5, -2.5, 1.8, 1.8); ctx.fillStyle = '#fff'; ctx.fill();
+  ctx.restore();
+}
+const isPsychic = (fighterDef, buddyId) => !!(buddyId && buddyById(buddyId) && buddyById(buddyId).element === fighterDef.element);
+
 function drawIcon(ctx, name, x, y, s, col) {
   ctx.save();
   ctx.translate(x, y);
@@ -921,4 +949,4 @@ function buddyBody(ctx, def, col, acc, t, C) {
   return false;
 }
 
-window.MMArt = { FIGHTERS, BUDDIES, fighterById, buddyById, drawFighter, drawBuddy, drawShadow, drawProjectile, drawIcon, rrect, ell, fs, poly, star, shade, flame, ELEMENT_COLORS, OUT };
+window.MMArt = { ELEMENT_NAMES, drawPsyEye, isPsychic, FIGHTERS, BUDDIES, fighterById, buddyById, drawFighter, drawBuddy, drawShadow, drawProjectile, drawIcon, rrect, ell, fs, poly, star, shade, flame, ELEMENT_COLORS, OUT };

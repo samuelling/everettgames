@@ -34,6 +34,12 @@ Everett's arena fighting game.
 - **Buddy Island.** Only buddies live here (14 kinds), no enemies. Find one hiding in the bushes
   or chase one down. Catching it makes your fighter **bigger** (up to 4 sizes), and
   the buddy becomes your partner, nipping at the other fighter during matches.
+- **Psychic (Everett's rule).** If your buddy has the same element as your fighter (a
+  "double", like Sprout + Mossy = double leaf), you get psychic powers. You get a purple aura,
+  about 35% harder hits, 15% more health, a faster MEGAMAX meter, and homing psychic orbs
+  instead of your normal power shot. MEGAMAX becomes PSYCHIC MEGAMAX with 10 blasts
+  instead of 7. Buddy Island always has at least one buddy that matches your fighter, and
+  it shimmers purple. Bad guys can get doubles too.
 - **MEGAMAX skill.** Landing hits fills the meter. When it's full, your buddy goes
   giant and blasts the other fighter.
 - **Be the fighter or be the Coach.** In Coach mode the fighter fights on their own,

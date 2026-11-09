@@ -510,6 +510,14 @@
       ai: { t: 0, act: 'approach', order: null, orderT: 0, dodgeT: 0, dodgeDir: 1 },
     };
   }
+  // PSYCHIC (Everett's rule): a buddy with the SAME element as its fighter ("double leaf") gives
+  // psychic powers — harder hits, more health, a faster MEGAMAX meter, homing mind-orbs.
+  function makeFighterP(def, size, buddyId, x, z, facing, isCPU) {
+    const f = makeFighter(def, size, buddyId, x, z, facing, isCPU);
+    f.psychic = A.isPsychic(def, buddyId);
+    if (f.psychic) { f.pow *= 1.35; f.maxHp = f.hp = f.shownHp = Math.round(f.maxHp * 1.15); f.spd *= 1.08; }
+    return f;
+  }
 
   function SceneFight(p) {
     AU.play('arena');
@@ -524,8 +532,8 @@
     const D = clamp(0.25 + 0.07 * (E - 1), 0.1, 0.95);
     const oSize = Math.min(4, 1 + Math.floor((L - 1) / 2) + (boss ? 1 : 0));
     const oBuddy = L >= 3 ? pick(BUDDIES).id : null;
-    const P = makeFighter(pdef, pst.size, pst.buddy, 300, 400, 1, false);
-    const O = makeFighter(odef, oSize, oBuddy, 660, 400, -1, true);
+    const P = makeFighterP(pdef, pst.size, pst.buddy, 300, 400, 1, false);
+    const O = makeFighterP(odef, oSize, oBuddy, 660, 400, -1, true);
     O.dmgMul = clamp(0.5 + 0.05 * (E - 1), 0.3, 0.95) * (boss ? 1.1 : 1);
     O.maxHp = O.hp = O.shownHp = Math.round(O.maxHp * clamp(1 + 0.05 * (E - 1), 0.7, 1.4) * (boss ? 1.2 : 1));
     O.spd *= clamp(1 + 0.03 * (E - 1), 0.85, 1.3);
@@ -537,7 +545,8 @@
     let intro = 2.3, hitstop = 0, shake = 0, slow = 0, mega = null, ko = null, flashScreen = 0, hype = 0;
     let hintCd = 0, t = 0, ended = false;
     parts = []; fx = [];
-    AU.say(boss ? `Level ${L}. Boss fight! ${odef.name}!` : `Level ${L}! ${odef.name}! Fight!`);
+    AU.say((boss ? `Level ${L}. Boss fight! ${odef.name}!` : `Level ${L}! ${odef.name}! Fight!`) +
+      (P.psychic ? ` Double ${A.ELEMENT_NAMES[pdef.element]}! Psychic power!` : ''));
 
     function coachCall(order, icon) {
       if (intro > 0 || ko) return;
@@ -571,7 +580,7 @@
       tg.kz = clamp((tg.z - at.z) * 2, -80, 80);
       tg.state = 'hurt';
       tg.inv = kind === 'mega' ? 0 : 0.08;
-      if (kind !== 'mega') at.meter = Math.min(100, at.meter + (kind === 'nip' ? 5 : 11));
+      if (kind !== 'mega') at.meter = Math.min(100, at.meter + (kind === 'nip' ? 5 : 11) * (at.psychic ? 1.3 : 1));
       tg.meter = Math.min(100, tg.meter + 5);
       hitstop = kind === 'mega' ? 0.03 : 0.065;
       shake = Math.max(shake, kind === 'mega' ? 12 : kind === 'nip' ? 3 : 7);
@@ -610,13 +619,19 @@
     }
     function shoot(f, o) {
       const dx = o.x - f.x, dz = o.z - f.z, l = Math.hypot(dx, dz) || 1;
+      if (f.psychic) {
+        // psychic mind-orb: bigger, a bit stronger, and it curves after the target
+        projs.push({ x: f.x + f.facing * 34 * f.sc, z: f.z, h: f.h + 70 * f.sc, vx: (dx / l) * 600, vz: (dz / l) * 600, el: 'psychic', r: 17 * f.sc, dmg: 12 * f.pow, owner: f, target: o, life: 2.2, t: 0, seek: true });
+        burst(f.x + f.facing * 40 * f.sc, f.z - 70 * f.sc, ['#c77dff', '#e0aaff', '#fff'], 8, 200, { shape: 'star', g: -40 });
+        return;
+      }
       projs.push({ x: f.x + f.facing * 34 * f.sc, z: f.z, h: f.h + 66 * f.sc, vx: (dx / l) * 560, vz: (dz / l) * 560, el: f.def.element, r: 13 * f.sc, dmg: 10 * f.pow, owner: f, target: o, life: 1.8, t: 0 });
     }
     function startMega(f, o) {
       mega = { f, o, t: 0, n: 0 };
       f.meter = 0; f.state = 'power'; f.st = 0.2; f.fired = true;
       AU.sfx('mega');
-      AU.say('Mega Max!', { rate: 0.85, pitch: 1.1 });
+      AU.say(f.psychic ? 'Psychic Mega Max!' : 'Mega Max!', { rate: 0.85, pitch: 1.1 });
       flashScreen = 1; shake = 8; hype = 1;
     }
 
@@ -724,6 +739,11 @@
           if (d < 40) { pj.life = 0; hit(tg, pj.owner, pj.dmg, 'mega'); if (pj.last) { AU.sfx('boom'); shake = 16; burst(tg.x, tg.z - 60, ['#fff', '#ffe14d', '#ff4d6d', '#4cc9f0'], 30, 520, { shape: 'star' }); } }
           continue;
         }
+        if (pj.seek && pj.target.state !== 'ko') {
+          const sdx = pj.target.x - pj.x, sdz = pj.target.z - pj.z, sl = Math.hypot(sdx, sdz) || 1, k = Math.min(1, dt * 2.6);
+          pj.vx = lerp(pj.vx, (sdx / sl) * 600, k); pj.vz = lerp(pj.vz, (sdz / sl) * 600, k);
+          const sp = Math.hypot(pj.vx, pj.vz) || 1; pj.vx = (pj.vx / sp) * 600; pj.vz = (pj.vz / sp) * 600;
+        }
         pj.x += pj.vx * dt; pj.z += pj.vz * dt;
         const tg = pj.target;
         if (tg.state !== 'ko' && Math.abs(pj.x - tg.x) < pj.r + 22 * tg.sc && Math.abs(pj.z - tg.z) < 30 && tg.h < 90) {
@@ -801,9 +821,11 @@
           const f = mega.f, o = mega.o;
           f.state = 'power'; f.st = 0.2;
           const bx = f.x - f.facing * 80 * f.sc, bz = f.z - 4;
-          if (mega.t > 0.8 && mega.n < 7 && mega.t > 0.8 + mega.n * 0.14) {
-            const last = mega.n === 6;
-            projs.push({ x: bx + f.facing * 40, z: bz, h: 170 * f.sc, el: f.buddy.def.element, r: last ? 30 : 20, dmg: (last ? 10 : 4.5) * f.pow, owner: f, target: o, life: 3, t: 0, homing: true, last });
+          const shots = f.psychic ? 10 : 7; // psychic MEGAMAX throws more
+          if (mega.t > 0.8 && mega.n < shots && mega.t > 0.8 + mega.n * (f.psychic ? 0.11 : 0.14)) {
+            const last = mega.n === shots - 1;
+            const el = f.psychic && mega.n % 2 ? 'psychic' : f.buddy.def.element;
+            projs.push({ x: bx + f.facing * 40, z: bz, h: 170 * f.sc, el, r: last ? 30 : 20, dmg: (last ? 10 : 4.5) * f.pow, owner: f, target: o, life: 3, t: 0, homing: true, last });
             AU.sfx('power');
             mega.n++;
           }
@@ -862,6 +884,7 @@
           list.push({ z: f.z, d: () => {
             const ps = persp(f.z);
             A.drawShadow(ctx, f.x, f.z, f.sc * ps * (1 - Math.min(0.5, f.h / 400)));
+            if (f.psychic && f.state !== 'ko') drawPsyAura(f.x, f.z, f.h, f.sc * ps, f.t);
             if (f.rage > 0 && f.state !== 'ko') {
               // the tougher the level, the angrier the red glow
               const gy = f.z - f.h - 60 * f.sc * ps, gr = 95 * f.sc * ps * (1 + Math.sin(t * 6) * 0.06);
@@ -915,7 +938,8 @@
         if (mega && mega.t < 2.0) {
           const k = easeOutBack(Math.min(1, mega.t / 0.35));
           ctx.save(); ctx.translate(480, 150); ctx.rotate(Math.sin(mega.t * 10) * 0.04); ctx.scale(k, k);
-          bigText('MEGAMAX!', 0, 0, 84, null, { rainbow: true, shift: mega.t });
+          if (mega.f.psychic) { A.drawPsyEye(ctx, 0, -86, 1.4, T); bigText('PSYCHIC', 0, -40, 44, '#e0aaff'); }
+          bigText('MEGAMAX!', 0, mega.f.psychic ? 20 : 0, 84, null, { rainbow: true, shift: mega.t });
           ctx.restore();
         }
         if (intro > 0) {
@@ -961,6 +985,25 @@
     ctx.restore();
   }
 
+  // purple psychic aura: a glowing ring on the floor and mind-sparkles orbiting the fighter
+  function drawPsyAura(x, z, hgt, s, t) {
+    ctx.save();
+    const pulse = 1 + Math.sin(t * 5) * 0.08;
+    ctx.globalAlpha = 0.55; ctx.strokeStyle = '#c77dff'; ctx.lineWidth = 5;
+    A.ell(ctx, x, z, 46 * s * pulse, 12 * s * pulse); ctx.stroke();
+    ctx.globalAlpha = 0.25; ctx.fillStyle = '#c77dff'; A.ell(ctx, x, z, 40 * s * pulse, 10 * s * pulse); ctx.fill();
+    const g = ctx.createRadialGradient(x, z - hgt - 70 * s, 5, x, z - hgt - 70 * s, 100 * s);
+    g.addColorStop(0, 'rgba(199,125,255,0.32)'); g.addColorStop(1, 'rgba(199,125,255,0)');
+    ctx.globalAlpha = 1; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, z - hgt - 70 * s, 100 * s, 0, Math.PI * 2); ctx.fill();
+    for (let i = 0; i < 3; i++) {
+      const a = t * 2.4 + (i / 3) * Math.PI * 2;
+      const sx = x + Math.cos(a) * 52 * s, sy = z - hgt - 75 * s + Math.sin(a) * 18 * s;
+      ctx.fillStyle = i % 2 ? '#e0aaff' : '#ffffff';
+      A.star(ctx, sx, sy, 7 * s, 4, 0.45); ctx.fill();
+    }
+    ctx.restore();
+  }
+
   function drawMegaIcon(f, ready) {
     if (f.buddy) {
       A.drawBuddy(ctx, f.buddy.def, { x: 0, y: 18, scale: 0.75, t: T, mood: ready ? 'happy' : 'idle', silhouette: false, alpha: ready ? 1 : 0.65 });
@@ -991,6 +1034,7 @@
   function drawHUD(f, side) {
     const px = side > 0 ? 62 : W - 62, py = 56;
     drawPortrait(f.def, px, py, 36, f.size);
+    if (f.psychic) A.drawPsyEye(ctx, px + side * 30, py + 30, 0.55, T);
     const bw = 280 + 20 * (f.size - 1), bx = side > 0 ? 108 : W - 108 - bw, by = 26;
     ctx.save();
     A.rrect(ctx, bx, by, bw, 26, 13); A.fs(ctx, '#2a2745', 4);
@@ -1128,7 +1172,12 @@
     const pond = { x: 1420, z: 430, rx: 150, rz: 42 };
 
     // buddies: prefer ones this fighter doesn't have yet
-    const pool = shuffle(BUDDIES.filter((b) => b.id !== st.buddy));
+    let pool = shuffle(BUDDIES.filter((b) => b.id !== st.buddy));
+    // make sure at least one buddy here matches this fighter's element (a "double" → psychic)
+    const match = pool.filter((b) => b.element === def.element);
+    if (match.length && !pool.slice(0, 5).some((b) => b.element === def.element)) {
+      const m = match[0]; pool = pool.filter((b) => b !== m); pool.splice(Math.floor(rand(0, 5)), 0, m);
+    }
     const crit = pool.slice(0, 5).map((b, i) => {
       const c = { def: b, x: 0, z: 0, h: 0, vh: 0, t: rand(0, 5), state: 'wander', tx: 0, tz: 0, fleeT: 0, tiredT: 0, facing: 1, bush: null };
       if (i < 2) {
@@ -1147,10 +1196,11 @@
 
     function catchIt(c) {
       found = true;
-      caught = { c, t: 0, from: { x: c.x, z: c.z }, oldSize: st.size, newSize: Math.min(4, st.size + 1), grew: st.size < 4 };
+      caught = { c, t: 0, from: { x: c.x, z: c.z }, oldSize: st.size, newSize: Math.min(4, st.size + 1), grew: st.size < 4, psychic: c.def.element === def.element };
       c.state = 'caught';
       AU.sfx('catch');
       AU.say(`You found ${c.def.name}!`);
+      if (caught.psychic) setTimeout(() => AU.say(`Double ${A.ELEMENT_NAMES[def.element]}! You got psychic powers!`, { queue: true }), 300);
       st.buddy = c.def.id;
       if (caught.grew) st.size = caught.newSize;
       save();
@@ -1181,7 +1231,7 @@
             const dx = c.x - pl.x, dz = c.z - pl.z, d = Math.hypot(dx, dz * 1.5);
             if (c.state === 'hide') {
               if (Math.random() < dt * 0.6) { c.bush.rustle = 0.5; burst(c.bush.x + rand(-20, 20), c.bush.z - 50, '#52b788', 2, 80, { shape: 'leaf', g: 200 }); }
-              if (Math.random() < dt * 1.2) burst(c.bush.x + rand(-30, 30), c.bush.z - 90 + rand(-10, 10), '#fff6a0', 1, 30, { shape: 'star', g: -20 });
+              if (Math.random() < dt * (c.def.element === def.element ? 2.4 : 1.2)) burst(c.bush.x + rand(-30, 30), c.bush.z - 90 + rand(-10, 10), c.def.element === def.element ? '#d29bff' : '#fff6a0', 1, 30, { shape: 'star', g: -20 });
               if (d < 120) {
                 c.state = 'flee'; c.fleeT = 1.6; c.vh = 520; c.bush.hide = null; c.bush.rustle = 1;
                 AU.sfx('rustle'); burst(c.x, c.z - 40, ['#52b788', '#2d6a4f'], 12, 260, { shape: 'leaf' });
@@ -1227,7 +1277,12 @@
             pl.sc = lerp(s0, s1, easeOutElastic(g));
             if (g > 0 && g < 1 && Math.random() < dt * 30) burst(pl.x + rand(-40, 40), pl.z - rand(0, 160) * pl.sc, ['#ffe14d', '#fff'], 1, 120, { shape: 'star', g: -100 });
           }
-          if (caught.t > (caught.grew ? 2.6 : 1.6)) {
+          if (caught.psychic && caught.t > 2.4 && !caught.psySparkled) {
+            caught.psySparkled = true; AU.sfx('mega');
+            fx.push({ kind: 'ring', x: pl.x, y: pl.z - 70, r: 170, col: '#c77dff', t: 0, life: 0.8 });
+            burst(pl.x, pl.z - 80, ['#c77dff', '#e0aaff', '#fff'], 30, 360, { shape: 'star' });
+          }
+          if (caught.t > (caught.psychic ? 3.4 : caught.grew ? 2.6 : 1.6)) {
             button({ id: 'to-fight', x: 400, y: 470, r: 50, color: '#ff4d6d', icon: 'fist', focus: true, pulse: true, onTap: () => { AU.sfx('tap'); go('select', { mode: 'fight', pre: def.id }); } });
             button({ id: 'to-home', x: 560, y: 470, r: 46, color: '#3a3f7a', icon: 'home', focus: true, onTap: () => { AU.sfx('tap'); go('hub'); } });
           }
@@ -1267,6 +1322,13 @@
           list.push({ z: c.z, d: () => {
             const s = ipersp(c.z);
             if (c.state !== 'caught') A.drawShadow(ctx, c.x, c.z, 0.55 * s);
+            if (c.def.element === def.element && c.state !== 'caught') {
+              // a buddy that matches you shimmers purple — catch it for psychic powers
+              const gy = c.z - c.h - 26 * s, gr = 48 * s * (1 + Math.sin(c.t * 6) * 0.1);
+              const g = ctx.createRadialGradient(c.x, gy, 4, c.x, gy, gr); g.addColorStop(0, 'rgba(199,125,255,0.55)'); g.addColorStop(1, 'rgba(199,125,255,0)');
+              ctx.fillStyle = g; ctx.beginPath(); ctx.arc(c.x, gy, gr, 0, Math.PI * 2); ctx.fill();
+              if (Math.random() < 0.08) burst(c.x + rand(-20, 20), gy - 20, ['#c77dff', '#fff'], 1, 40, { shape: 'star', g: -30 });
+            }
             A.drawBuddy(ctx, c.def, { x: c.x, y: c.z - c.h, scale: 0.85 * s, t: c.t, facing: c.facing, mood: c.state === 'flee' ? 'hop' : c.state === 'caught' ? 'happy' : 'idle' });
             if (c.state === 'tired') {
               ctx.fillStyle = '#7ad3ff'; ctx.beginPath(); const sx = c.x + 24 * s, sy = c.z - 52 * s - (c.t * 20 % 10);
@@ -1278,6 +1340,7 @@
         list.push({ z: pl.z + 0.5, d: () => {
           const s = ipersp(pl.z);
           A.drawShadow(ctx, pl.x, pl.z, pl.sc * s);
+          if (A.isPsychic(def, st.buddy) && (!caught || caught.t > 2.4)) drawPsyAura(pl.x, pl.z, pl.h, pl.sc * s, pl.t);
           A.drawFighter(ctx, def, { x: pl.x, y: pl.z - pl.h, scale: pl.sc * s, facing: pl.facing, pose: pl.state, t: pl.t });
         } });
         list.sort((a, b) => a.z - b.z).forEach((it) => it.d());
@@ -1304,7 +1367,8 @@
         } else {
           const k = easeOutBack(clamp((caught.t - 0.6) / 0.4, 0, 1));
           ctx.save(); ctx.translate(480, 110); ctx.scale(k, k);
-          bigText(caught.grew && caught.t > 1.4 ? 'BIGGER!' : 'BUDDY!', 0, 0, 70, null, { rainbow: true, shift: t * 0.4 });
+          if (caught.psychic && caught.t > 2.4) { A.drawPsyEye(ctx, 0, -50, 1.3, t); bigText('PSYCHIC!', 0, 10, 70, '#e0aaff'); }
+          else bigText(caught.grew && caught.t > 1.4 ? 'BIGGER!' : 'BUDDY!', 0, 0, 70, null, { rainbow: true, shift: t * 0.4 });
           ctx.restore();
           if (caught.t > 1.0) drawPips(480, 170, st.size, 4, 9);
         }
@@ -1534,6 +1598,7 @@
             A.drawFighter(ctx, d, { x: w / 2 - (have && st.buddy ? 12 : 0), y: h - 34, scale: s, facing: 1, pose: isFocus || isHeld ? 'win' : 'idle', t: T + i, silhouette: !have });
             if (have) {
               if (st.buddy) A.drawBuddy(ctx, buddyById(st.buddy), { x: w - 36, y: h - 30, scale: 0.5, t: T + i, mood: 'idle', facing: -1 });
+              if (A.isPsychic(d, st.buddy)) A.drawPsyEye(ctx, 30, 26, 0.7, T);
               drawPips(w / 2, h - 16, st.size, 4, 5);
             } else A.drawIcon(ctx, 'lock', w / 2, 70, 44, '#9d8fd0');
           } });
