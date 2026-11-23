@@ -5,7 +5,7 @@ Tap a cartridge once to hear its name, then tap it again (or press ▶). The gam
 right on the console's screen; the orange eject button takes you back to the cartridges.
 A link like `.../EverettGames/#megamax` boots straight into a game.
 
-**Play:** https://samuelling.github.io/EverettGames/
+**Play:** https://linglab.org/everettgames/
 
 ## Cartridges
 

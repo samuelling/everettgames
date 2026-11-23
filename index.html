@@ -266,9 +266,9 @@ const GAMES = [
   { id: 'megamax',       name: 'MegaMax',          url: 'games/megamax/',                              color: '#ff006e', art: 'megamax', isNew: true },
   { id: 'math',          name: 'Math Buddies',     url: 'games/learn/?s=math',                         color: '#4361ee', art: 'math', isNew: true },
   { id: 'letters',       name: 'Letter Land',      url: 'games/learn/?s=read',                         color: '#f15bb5', art: 'letters', isNew: true },
-  { id: 'brick-ninja',   name: 'Brick Ninja',      url: 'https://samuelling.github.io/Brick-Ninja/',   color: '#3a3f7a', art: 'ninja' },
-  { id: 'toilet-goalie', name: 'Toilet Goalie',    url: 'https://samuelling.github.io/toilet-goalie/', color: '#4cc9f0', art: 'toilet' },
-  { id: 'slapanimal',    name: 'Slapanimal',       url: 'https://samuelling.github.io/Slapanimal/',    color: '#ff8c2b', art: 'slap' },
+  { id: 'brick-ninja',   name: 'Brick Ninja',      url: 'https://linglab.org/brick-ninja/',   color: '#3a3f7a', art: 'ninja' },
+  { id: 'toilet-goalie', name: 'Toilet Goalie',    url: 'https://linglab.org/toilet-goalie/', color: '#4cc9f0', art: 'toilet' },
+  { id: 'slapanimal',    name: 'Slapanimal',       url: 'https://linglab.org/slapanimal/',    color: '#ff8c2b', art: 'slap' },
   { id: 'candy',         name: "Chip's Candy Run", soon: true,                                          color: '#f15bb5', art: 'candy' },
   { id: 'journey',       name: 'Animal Journey',   soon: true,                                          color: '#2ec4b6', art: 'journey' },
 ];
@@ -449,7 +449,7 @@ function startGame(i, push) {
   playIco.innerHTML = EJECT_SVG; playBtn.classList.add('eject'); playBtn.setAttribute('aria-label', 'Eject the game (hold)');
   frame.addEventListener('load', () => {
     try { frame.contentWindow.focus(); } catch (e) {}
-    // same-origin games (all of them on samuelling.github.io): stop zooming inside the game too
+    // same-origin games (all of them on linglab.org): stop zooming inside the game too
     try {
       const d = frame.contentDocument;
       if (d && d.documentElement) {
